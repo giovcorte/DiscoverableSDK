@@ -1,9 +1,7 @@
 package com.discoverable.discoverablesdk.client
 
-import android.content.Context
-import android.net.wifi.WifiManager
-import com.discoverable.discoverablesdk.DiscoverableApplication
 import com.discoverable.discoverablesdk.DiscoverablePath
+import com.discoverable.discoverablesdk.configuration.DiscoverableContext
 import com.discoverable.discoverablesdk.generateIncrementalCacheKey
 import com.discoverable.discoverablesdk.headers
 import com.discoverable.discoverablesdk.model.Discoverable
@@ -35,16 +33,17 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-class DiscoverableClient(private val discoverableApplication: DiscoverableApplication) {
+internal class DiscoverableClient(discoverableContext: DiscoverableContext) {
 
     companion object {
         const val DISCOVERABLE_COUNT_KEY = "discoverable-count-key"
         const val DISCOVERABLE_BASE_KEY = "discoverable-base-key"
     }
 
-    private val discoverablePort = discoverableApplication.discoverableContext.discoverablePort
-    private val discoverableIdentity = discoverableApplication.discoverableContext.discoverableIdentity
-    private val discoverableCache = discoverableApplication.discoverableContext.discoverableDiskCache
+    private val wifiManager = discoverableContext.wifiManager
+    private val discoverablePort = discoverableContext.discoverablePort
+    private val discoverableIdentity = discoverableContext.discoverableIdentity
+    private val discoverableCache = discoverableContext.discoverableDiskCache
 
     private val discoverableCount = AtomicInteger(0)
 
@@ -62,7 +61,7 @@ class DiscoverableClient(private val discoverableApplication: DiscoverableApplic
         }
     }
 
-    private val discoverableWebSocket = DiscoverableWebSocket(client, discoverableApplication.discoverableContext)
+    private val discoverableWebSocket = DiscoverableWebSocket(client, discoverableContext)
     private val discoverables = mutableSetOf<Discoverable>()
 
     private fun initialize() {
@@ -111,7 +110,6 @@ class DiscoverableClient(private val discoverableApplication: DiscoverableApplic
     suspend fun discoverHttpServers() : List<Discoverable> {
         initialize()
         try {
-            val wifiManager = discoverableApplication.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val subnet = getSubnetAddress(wifiManager.dhcpInfo.gateway)
             for (i in 0..254) {
                 val host = "$subnet.$i"

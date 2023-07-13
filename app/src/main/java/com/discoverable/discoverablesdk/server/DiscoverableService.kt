@@ -10,10 +10,13 @@ import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.discoverable.discoverablesdk.DiscoverablePath
+import com.discoverable.discoverablesdk.DiscoverableRepository
 import com.discoverable.discoverablesdk.cache.DiskCache
 import com.discoverable.discoverablesdk.cache.Utils.formatKey
+import com.discoverable.discoverablesdk.configuration.DiscoverableContext
 import com.discoverable.discoverablesdk.configuration.DiscoverableServiceConfiguration
 import com.discoverable.discoverablesdk.discoverableApplication
+import com.discoverable.discoverablesdk.exceptions.DiscoverableRuntimeException
 import com.discoverable.discoverablesdk.generateIncrementalCacheKey
 import com.discoverable.discoverablesdk.ip
 import com.discoverable.discoverablesdk.model.Discoverable
@@ -63,18 +66,22 @@ abstract class DiscoverableService : Service() {
     private val coroutineScope = GlobalScope
     private var job: Job? = null
 
+    private lateinit var discoverableContext: DiscoverableContext
+    private lateinit var discoverableRepository: DiscoverableRepository
     private lateinit var configuration: DiscoverableServiceConfiguration
     private lateinit var diskCache: DiskCache
-    private val clientManager = ClientManager()
+    private val discoverableClientManager = DiscoverableClientManager()
 
     abstract suspend fun onDiscoverableTextReceived(result: DiscoverableResult)
     abstract suspend fun onDiscoverableFileReceived(result: DiscoverableResult)
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        super.onStartCommand(intent, flags, startId)
         onConfigureService()
         onInitializeService(intent)
+
+        super.onStartCommand(intent, flags, startId)
+
         job = coroutineScope.launch {
             embeddedServer(Netty, port = configuration.Port) {
                 install(ContentNegotiation) {
@@ -87,13 +94,13 @@ abstract class DiscoverableService : Service() {
 
                 install(Routing) {
                     get(DiscoverablePath.Identity) {
-                       call.respond(HttpStatusCode.OK, discoverableApplication.discoverableContext.discoverableIdentity)
+                       call.respond(HttpStatusCode.OK, discoverableContext.discoverableIdentity)
                     }
 
                     post(DiscoverablePath.Text) {
                         val result = DiscoverableResult.DiscoverableText(Discoverable(call.ip, call.name), call.receive())
                         onDiscoverableTextReceived(result)
-                        discoverableApplication.sendDiscoverableResult(result)
+                        discoverableContext.sendDiscoverableResult(result)
                         call.respond(HttpStatusCode.OK)
                     }
 
@@ -104,23 +111,23 @@ abstract class DiscoverableService : Service() {
                             commit()
                             val result = DiscoverableResult.DiscoverableFile(Discoverable(call.ip, call.name), cacheKey)
                             onDiscoverableFileReceived(result)
-                            discoverableApplication.sendDiscoverableResult(result)
+                            discoverableContext.sendDiscoverableResult(result)
                         }
                         call.respond(HttpStatusCode.OK)
                     }
 
                     get(DiscoverablePath.WebSocketConfig) {
-                        val isWebSocketConnected = discoverableApplication.discoverableRepository.isWebSocketConfigured()
+                        val isWebSocketConnected = discoverableRepository.isWebSocketConfigured()
                         if (isWebSocketConnected) {
-                            val host = discoverableApplication.discoverableRepository.webSocketConfiguration()
+                            val host = discoverableRepository.webSocketConfiguration()
                             if (host != null) {
                                 call.respond(host)
                             } else {
                                 call.respond(HttpStatusCode.InternalServerError)
                             }
                         } else {
-                            val discoverableServer = discoverableApplication.discoverableRepository.availableCachedDiscoverables().random()
-                            if (discoverableApplication.discoverableRepository.connectWebSocket(discoverableServer)) {
+                            val discoverableServer = discoverableRepository.availableCachedDiscoverables().random()
+                            if (discoverableRepository.connectWebSocket(discoverableServer)) {
                                 call.respond(HttpStatusCode.OK, discoverableServer)
                             } else {
                                 call.respond(HttpStatusCode.InternalServerError)
@@ -129,20 +136,24 @@ abstract class DiscoverableService : Service() {
                     }
 
                     webSocket(DiscoverablePath.WebSocket) {
-                        val id = call.ip
-                        val thisConnection = clientManager.cleanAndCreateConnection(this, id)
-                        clientManager.connections += thisConnection
+                        try {
+                            val id = call.ip
+                            val thisConnection = discoverableClientManager.cleanAndCreateConnection(this, id)
+                            discoverableClientManager.connections += thisConnection
 
-                        incoming.consumeEach { frame ->
-                            if (frame is Frame.Text) {
-                                val receivedText = frame.readText()
-                                val discoverableMessage : DiscoverableMessage = receivedText.toMessage()
-                                if (discoverableMessage.destination == null) {
-                                    clientManager.sendMessageToAll(discoverableMessage)
-                                } else {
-                                    clientManager.sendMessageTo(discoverableMessage)
+                            incoming.consumeEach { frame ->
+                                if (frame is Frame.Text) {
+                                    val receivedText = frame.readText()
+                                    val discoverableMessage: DiscoverableMessage = receivedText.toMessage()
+                                    if (discoverableMessage.destination == null) {
+                                        discoverableClientManager.sendMessageToAll(discoverableMessage)
+                                    } else {
+                                        discoverableClientManager.sendMessageTo(discoverableMessage)
+                                    }
                                 }
                             }
+                        } catch (e: DiscoverableRuntimeException) {
+                            close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "Invalid headers"))
                         }
                     }
                 }
@@ -153,15 +164,17 @@ abstract class DiscoverableService : Service() {
     }
 
     private fun onConfigureService() {
-        configuration = discoverableApplication.discoverableContext.discoverableServiceConfiguration
-        diskCache = discoverableApplication.discoverableContext.discoverableDiskCache
+        discoverableContext = discoverableApplication.discoverableContext
+        discoverableRepository = discoverableApplication.discoverableRepository
+        configuration = discoverableContext.discoverableServiceConfiguration
+        diskCache = discoverableContext.discoverableDiskCache
     }
 
     open fun onInitializeService(intent: Intent?) {
         val pendingIntent: PendingIntent =
             PendingIntent.getActivity(
                 this,
-                0, Intent(this, discoverableApplication.discoverableContext.discoverableActivity.java), PendingIntent.FLAG_IMMUTABLE)
+                0, Intent(this, discoverableContext.discoverableActivity.java), PendingIntent.FLAG_IMMUTABLE)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(configuration.NotificationChannelId, configuration.NotificationChannelName, NotificationManager.IMPORTANCE_MIN).apply {

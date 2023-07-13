@@ -1,24 +1,26 @@
 package com.discoverable.discoverablesdk
 
 import com.discoverable.discoverablesdk.client.DiscoverableClient
+import com.discoverable.discoverablesdk.configuration.DiscoverableContext
 import com.discoverable.discoverablesdk.model.Discoverable
+import com.discoverable.discoverablesdk.model.DiscoverableResult
+import kotlinx.coroutines.flow.Flow
 import java.io.File
 
 @Suppress("unused")
 class DiscoverableRepository(
-    discoverableApplication: DiscoverableApplication,
-
+    discoverableContext: DiscoverableContext,
 ) {
     /**
      * Client
      */
-    private val discoverableClient = DiscoverableClient(discoverableApplication)
+    private val discoverableClient = DiscoverableClient(discoverableContext)
 
     /**
      * Http
      */
 
-    private val discoverableIncomingHttpRequest = discoverableApplication.discoverableIncomingFlow
+    private val discoverableIncomingHttpRequest : Flow<DiscoverableResult> = discoverableContext.discoverableIncomingHttpFlow
 
     suspend fun availableDiscoverables() : List<Discoverable> {
         return discoverableClient.discoverHttpServers()

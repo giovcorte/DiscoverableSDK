@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.isActive
 
-class DiscoverableWebSocket(
+internal class DiscoverableWebSocket(
     private val client: HttpClient,
     private val discoverableContext: DiscoverableContext
 ) {

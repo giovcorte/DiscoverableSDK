@@ -9,7 +9,7 @@ import io.ktor.websocket.close
 import kotlinx.coroutines.isActive
 import java.util.Collections
 
-class ClientManager {
+class DiscoverableClientManager {
     val connections : MutableSet<Connection> = Collections.synchronizedSet(LinkedHashSet())
 
     suspend fun cleanAndCreateConnection(session: DefaultWebSocketSession, id: String) : Connection {
