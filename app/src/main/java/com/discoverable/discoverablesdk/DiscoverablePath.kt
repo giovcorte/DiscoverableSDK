@@ -1,6 +1,6 @@
 package com.discoverable.discoverablesdk
 
-object DiscoverablePath {
+internal object DiscoverablePath {
     const val Identity = "/"
     const val Text = "/text"
     const val File = "/upload"

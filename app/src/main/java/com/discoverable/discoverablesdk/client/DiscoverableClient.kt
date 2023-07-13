@@ -33,7 +33,7 @@ import kotlinx.serialization.json.Json
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-internal class DiscoverableClient(discoverableContext: DiscoverableContext) {
+class DiscoverableClient(discoverableContext: DiscoverableContext) {
 
     companion object {
         const val DISCOVERABLE_COUNT_KEY = "discoverable-count-key"

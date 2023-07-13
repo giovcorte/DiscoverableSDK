@@ -29,5 +29,4 @@ class DiscoverableContext(
     suspend fun sendDiscoverableResult(data: DiscoverableResult) {
         discoverableIncomingChannel.send(data)
     }
-
 }

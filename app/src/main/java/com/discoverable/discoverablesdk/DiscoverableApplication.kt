@@ -14,13 +14,15 @@ abstract class DiscoverableApplication : Application() {
     abstract val discoverableContext: DiscoverableContext
 
     private lateinit var discoverableServiceIntent: Intent
-    lateinit var discoverableRepository: DiscoverableRepository
+    internal lateinit var discoverableRepository: DiscoverableRepository
 
     override fun onCreate() {
         super.onCreate()
         discoverableServiceIntent = Intent(this, discoverableContext.discoverableService::class.java)
-        discoverableRepository = DiscoverableRepository(discoverableContext)
+        discoverableRepository = DiscoverableRepositoryImpl(discoverableContext)
     }
+
+    fun getDiscoverableRepository() = discoverableRepository
 
     @Synchronized
     fun startDiscoverableService() {

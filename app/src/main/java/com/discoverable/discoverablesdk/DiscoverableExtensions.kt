@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.FlowCollector
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 
-fun Intent?.getDiscoverableConfigurationOrThrow() : DiscoverableServiceConfiguration {
+internal fun Intent?.getDiscoverableConfigurationOrThrow() : DiscoverableServiceConfiguration {
     val extras = this?.extras ?: throw DiscoverableRuntimeException(DiscoverableConstants.NO_DISCOVERABLE_CONFIGURATION_PRIVIDED)
 
     val configuration = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -26,27 +26,27 @@ fun Intent?.getDiscoverableConfigurationOrThrow() : DiscoverableServiceConfigura
     return configuration ?: throw DiscoverableRuntimeException(DiscoverableConstants.NO_DISCOVERABLE_CONFIGURATION_PRIVIDED)
 }
 
-val DiscoverableService.discoverableApplication: DiscoverableApplication
+internal val DiscoverableService.discoverableApplication: DiscoverableApplication
     get() = application as DiscoverableApplication
 
-val ApplicationCall.name: String
+internal val ApplicationCall.name: String
     get() = request.headers["name"] ?: throw DiscoverableRuntimeException("Headers not conformed")
 
-val ApplicationCall.ip: String
+internal val ApplicationCall.ip: String
     get() = request.headers["ip"] ?: throw DiscoverableRuntimeException("Headers not conformed")
 
-fun AtomicInteger.generateIncrementalCacheKey(base: String) = if (get() > 0) "${base}${addAndGet(1)}" else "${base}${0}"
+internal fun AtomicInteger.generateIncrementalCacheKey(base: String) = if (get() > 0) "${base}${addAndGet(1)}" else "${base}${0}"
 
-fun Int.generateIncrementalCacheKey(base: String) = "${base}${this}"
+internal fun Int.generateIncrementalCacheKey(base: String) = "${base}${this}"
 
-val Discoverable.headers: Headers
+internal val Discoverable.headers: Headers
     get() = headers {
         append("name", name)
         append("ip", ipAddress)
     }
 
-fun Int.writeToFile(file: File) {
+internal fun Int.writeToFile(file: File) {
     file.writeText(toString())
 }
 
-fun File.readInt() = readText().toInt()
+internal fun File.readInt() = readText().toInt()
